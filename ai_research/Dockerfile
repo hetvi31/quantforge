@@ -6,7 +6,8 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install dependencies (re-use gateway dependencies format)
-RUN pip install --no-cache-dir fastapi uvicorn requests loguru google-generativeai openai
+RUN pip install --no-cache-dir fastapi uvicorn requests loguru groq
+
 
 # Copy source code
 COPY . .

@@ -3,14 +3,13 @@ from loguru import logger
 
 class SentimentEngine:
     def __init__(self):
-        self.openai_key = os.getenv("OPENAI_API_KEY", "")
-        self.gemini_key = os.getenv("GEMINI_API_KEY", "")
+        self.groq_key = os.getenv("GROQ_API_KEY", "")
         
-        self.use_llm = bool(self.openai_key or self.gemini_key)
+        self.use_llm = bool(self.groq_key)
         if self.use_llm:
-            logger.info("AI Sentiment Engine initialized using LLM APIs.")
+            logger.info("AI Sentiment Engine initialized using Groq API.")
         else:
-            logger.warning("No AI keys found. Falling back to heuristic dictionary scorer.")
+            logger.warning("No GROQ_API_KEY found. Falling back to heuristic dictionary scorer.")
 
     def score_text(self, text: str) -> float:
         """
@@ -21,35 +20,14 @@ class SentimentEngine:
             return 0.0
 
         if self.use_llm:
-            if self.gemini_key:
-                return self._score_with_gemini(text)
-            elif self.openai_key:
-                return self._score_with_openai(text)
+            return self._score_with_groq(text)
         
         return self._score_heuristic(text)
 
-    def _score_with_gemini(self, text: str) -> float:
+    def _score_with_groq(self, text: str) -> float:
         try:
-            import google.generativeai as genai
-            genai.configure(api_key=self.gemini_key)
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            prompt = (
-                "You are an expert quantitative sentiment analyst. Analyze the following financial text "
-                "and return ONLY a single floating-point number between -1.0 (most bearish) and +1.0 (most bullish) "
-                "representing the sentiment. Do not write explanations, markdown, or code. Text:\n"
-                f"{text}"
-            )
-            response = model.generate_content(prompt)
-            score = float(response.text.strip())
-            return max(-1.0, min(1.0, score))
-        except Exception as e:
-            logger.error(f"Gemini API Error: {e}. Falling back to heuristic.")
-            return self._score_heuristic(text)
-
-    def _score_with_openai(self, text: str) -> float:
-        try:
-            from openai import OpenAI
-            client = OpenAI(api_key=self.openai_key)
+            from groq import Groq
+            client = Groq(api_key=self.groq_key)
             prompt = (
                 "You are an expert quantitative sentiment analyst. Analyze the following financial text "
                 "and return ONLY a single floating-point number between -1.0 (most bearish) and +1.0 (most bullish) "
@@ -57,14 +35,14 @@ class SentimentEngine:
                 f"{text}"
             )
             response = client.chat.completions.create(
-                model="gpt-4-turbo",
+                model="llama-3.1-8b-instant",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.0
             )
             score = float(response.choices[0].message.content.strip())
             return max(-1.0, min(1.0, score))
         except Exception as e:
-            logger.error(f"OpenAI API Error: {e}. Falling back to heuristic.")
+            logger.error(f"Groq API Error: {e}. Falling back to heuristic.")
             return self._score_heuristic(text)
 
     def _score_heuristic(self, text: str) -> float:
