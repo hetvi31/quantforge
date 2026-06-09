@@ -17,6 +17,9 @@ from prometheus_client import make_asgi_app, Counter, Histogram, Gauge
 
 # Import DB creation utility
 from app.db.init_db import get_db_connection, init_database
+from app.risk import RiskEngine
+
+risk_engine = RiskEngine()
 
 app = FastAPI(title="QuantForge API Gateway", version="1.0.0")
 
@@ -292,9 +295,31 @@ def place_order(order: OrderRequest):
         order_id_counter += 1
         order_id = order_id_counter
 
-    # 2. Insert as pending/NEW in Postgres
-    # Assume default account_id = 1 (DefaultTrader seeded)
     account_id = 1
+
+    # 2. Risk check
+    passed, reason = risk_engine.check_order(
+        account_id=account_id,
+        symbol=order.symbol,
+        side=order.side,
+        price=order.price,
+        quantity=order.quantity
+    )
+
+    if not passed:
+        # Save as rejected order in the database
+        db_query(
+            """
+            INSERT INTO orders (order_id, account_id, symbol, side, type, price, quantity, remaining_quantity, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 0, 'R')
+            """,
+            (order_id, account_id, order.symbol, order.side, order.type, order.price, order.quantity),
+            commit=True,
+            fetch=False
+        )
+        raise HTTPException(status_code=400, detail=f"Order rejected by pre-trade risk checks: {reason}")
+
+    # 3. Insert as pending/NEW in Postgres
     db_query(
         """
         INSERT INTO orders (order_id, account_id, symbol, side, type, price, quantity, remaining_quantity, status)
@@ -305,7 +330,7 @@ def place_order(order: OrderRequest):
         fetch=False
     )
     
-    # 3. Create binary struct and send to C++ engine
+    # 4. Create binary struct and send to C++ engine
     # struct format: uint64_t (order_id), char[16] (symbol), char (side), char (type), double (price), uint64_t (quantity)
     side_char = order.side.encode('utf-8')
     type_char = order.type.encode('utf-8')
