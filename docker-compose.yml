@@ -96,6 +96,22 @@ services:
     depends_on:
       - redis
 
+  ai-research:
+    build:
+      context: ./ai_research
+      dockerfile: Dockerfile
+    container_name: quantforge-ai-research
+    restart: unless-stopped
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GATEWAY_URL=http://gateway:8000
+    ports:
+      - "8001:8001"
+    depends_on:
+      - gateway
+
+
 
 volumes:
   pgdata:
