@@ -4,10 +4,11 @@ from loguru import logger
 class SentimentEngine:
     def __init__(self):
         self.groq_key = os.getenv("GROQ_API_KEY", "")
+        self.groq_model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
         
         self.use_llm = bool(self.groq_key)
         if self.use_llm:
-            logger.info("AI Sentiment Engine initialized using Groq API.")
+            logger.info(f"AI Sentiment Engine initialized using Groq API ({self.groq_model}).")
         else:
             logger.warning("No GROQ_API_KEY found. Falling back to heuristic dictionary scorer.")
 
@@ -35,7 +36,7 @@ class SentimentEngine:
                 f"{text}"
             )
             response = client.chat.completions.create(
-                model="llama-3.1-8b-instant",
+                model=self.groq_model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.0
             )
