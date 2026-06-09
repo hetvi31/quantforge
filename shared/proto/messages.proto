@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package quantforge;
+
+enum ProtobufOrderSide {
+  SIDE_UNSPECIFIED = 0;
+  SIDE_BUY = 1;
+  SIDE_SELL = 2;
+}
+
+enum ProtobufOrderType {
+  TYPE_UNSPECIFIED = 0;
+  TYPE_LIMIT = 1;
+  TYPE_MARKET = 2;
+  TYPE_STOP = 3;
+}
+
+enum ProtobufOrderStatus {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_NEW = 1;
+  STATUS_PARTIALLY_FILLED = 2;
+  STATUS_FILLED = 3;
+  STATUS_CANCELLED = 4;
+  STATUS_REJECTED = 5;
+}
+
+message ProtobufOrderRequest {
+  uint64_t client_order_id = 1;
+  string symbol = 2;
+  ProtobufOrderSide side = 3;
+  ProtobufOrderType type = 4;
+  double price = 5;
+  uint64_t quantity = 6;
+  uint64_t timestamp = 7;
+}
+
+message ProtobufExecutionReport {
+  uint64_t order_id = 1;
+  uint64_t client_order_id = 2;
+  string symbol = 3;
+  ProtobufOrderSide side = 4;
+  ProtobufOrderStatus status = 5;
+  double price = 6;
+  uint64_t last_quantity = 7;
+  uint64_t cumulative_quantity = 8;
+  uint64_t remaining_quantity = 9;
+  uint64_t timestamp = 10;
+  string reject_reason = 11;
+}
+
+message PriceLevel {
+  double price = 1;
+  uint64_t quantity = 2;
+}
+
+message ProtobufMarketDepthUpdate {
+  string symbol = 1;
+  repeated PriceLevel bids = 2;
+  repeated PriceLevel asks = 3;
+  uint64_t timestamp = 4;
+}
