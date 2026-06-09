@@ -111,6 +111,18 @@ services:
     depends_on:
       - gateway
 
+  terminal:
+    build:
+      context: ./terminal
+      dockerfile: Dockerfile
+    container_name: quantforge-terminal
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - gateway
+
+
 
 
 volumes:
