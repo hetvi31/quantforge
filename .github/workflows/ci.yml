@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  cpp:
+    name: C++ engine — build, test, benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y cmake g++ ninja-build
+      - name: Configure (Release, portable)
+        run: cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=Release -DQF_PORTABLE_BUILD=ON
+      - name: Build
+        run: cmake --build build -j
+      - name: Unit tests
+        run: ./build/bin/test_matching
+      - name: Benchmark (smoke)
+        run: ./build/bin/bench_matching 200000
+
+  gateway:
+    name: Gateway — Python unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: pip install -r gateway/requirements.txt
+      - name: Run unit tests
+        working-directory: gateway
+        run: python -m pytest tests -q
+
+  terminal:
+    name: Terminal — type-check & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install
+        working-directory: terminal
+        run: npm install --legacy-peer-deps
+      - name: Build (tsc + vite)
+        working-directory: terminal
+        run: npm run build
+
+  proto:
+    name: Protobuf — lint schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Validate schema compiles
+        run: protoc --proto_path=shared/proto --cpp_out=/tmp shared/proto/messages.proto

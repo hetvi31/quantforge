@@ -12,6 +12,11 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-quantforge}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   redis:
     image: redis:7-alpine
@@ -22,29 +27,41 @@ services:
     volumes:
       - redisdata:/data
     command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: quantforge-prometheus
+  matching-engine:
+    build:
+      context: .
+      dockerfile: matching_engine/Dockerfile
+    container_name: quantforge-matching-engine
     restart: unless-stopped
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    ports:
-      - "9090:9090"
-    depends_on:
-      - gateway
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: quantforge-grafana
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+      - "9001:9001"
     depends_on:
-      - prometheus
+      redis:
+        condition: service_healthy
+
+  feed-handler:
+    build:
+      context: .
+      dockerfile: feed_handler/Dockerfile
+    container_name: quantforge-feed-handler
+    restart: unless-stopped
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+      - "9002:9002/udp"
+    depends_on:
+      redis:
+        condition: service_healthy
 
   gateway:
     build:
@@ -60,40 +77,25 @@ services:
       - POSTGRES_PORT=5432
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - GATEWAY_HOST=0.0.0.0
-      - GATEWAY_PORT=8000
-      - GROQ_API_KEY=${GROQ_API_KEY}
-
+      - FEED_HOST=matching-engine
+      - FEED_TCP_PORT=9001
+      - API_KEY=${API_KEY:-quantforge-dev-key}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3001}
     ports:
       - "8000:8000"
     depends_on:
-      - postgres
-      - redis
-
-  matching-engine:
-    build:
-      context: .
-      dockerfile: matching_engine/Dockerfile
-    container_name: quantforge-matching-engine
-    restart: unless-stopped
-    ports:
-      - "9001:9001"
-    depends_on:
-      - redis
-
-  feed-handler:
-    build:
-      context: .
-      dockerfile: feed_handler/Dockerfile
-    container_name: quantforge-feed-handler
-    restart: unless-stopped
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    ports:
-      - "9002:9002/udp"
-    depends_on:
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      matching-engine:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   ai-research:
     build:
@@ -102,13 +104,15 @@ services:
     container_name: quantforge-ai-research
     restart: unless-stopped
     environment:
-      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
       - GROQ_MODEL=${GROQ_MODEL:-llama-3.1-8b-instant}
       - GATEWAY_URL=http://gateway:8000
+      - API_KEY=${API_KEY:-quantforge-dev-key}
     ports:
       - "8001:8001"
     depends_on:
-      - gateway
+      gateway:
+        condition: service_healthy
 
   terminal:
     build:
@@ -117,13 +121,41 @@ services:
     container_name: quantforge-terminal
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "3001:80"
     depends_on:
-      - gateway
+      gateway:
+        condition: service_started
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: quantforge-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      gateway:
+        condition: service_started
 
-
+  grafana:
+    image: grafana/grafana:latest
+    container_name: quantforge-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - grafanadata:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_started
 
 volumes:
   pgdata:
   redisdata:
+  grafanadata:

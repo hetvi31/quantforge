@@ -1,29 +1,31 @@
 class RiskAnalystAgent:
+    """
+    Rule-based gate on the portfolio manager's proposal. Deterministic: enforces
+    a hard research-trade size cap and passes HOLD through untouched.
+    """
+
     def __init__(self, max_allowed_qty: int = 100):
         self.max_allowed_qty = max_allowed_qty
 
     def validate_proposal(self, portfolio_proposal: dict) -> dict:
-        """
-        Validates recommended portfolio trades against risk limits.
-        """
         symbol = portfolio_proposal["symbol"]
+        side = portfolio_proposal.get("side")
         qty = portfolio_proposal["target_quantity"]
         action = portfolio_proposal["recommended_action"]
-        
-        approved = True
-        reason = "Trade proposal is within standard safety margins."
 
         if qty > self.max_allowed_qty:
-            approved = False
-            reason = f"Proposed size {qty} exceeds maximum allowed research trade size {self.max_allowed_qty}."
-        elif action == "HOLD":
-            approved = True
-            reason = "No trade actions proposed. Safety checks passed."
+            approved, reason = False, (f"Proposed size {qty} exceeds maximum research "
+                                       f"trade size {self.max_allowed_qty}.")
+        else:
+            approved, reason = True, "Proposal within research safety margins."
 
         return {
             "agent": "Risk Analyst Agent",
+            "method": "rule-based",
             "symbol": symbol,
+            "side": side,
+            "action": action,
             "approved": approved,
             "approved_quantity": qty if approved else 0,
-            "reasoning": f"Reviewed proposal to {action} {qty} {symbol}. Decision: Approved={approved}. Reason: {reason}"
+            "reasoning": f"Reviewed {action} {qty} {symbol}: approved={approved}. {reason}",
         }

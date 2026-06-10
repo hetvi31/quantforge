@@ -1,0 +1,73 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 0,
+  "title": "QuantForge Trading Overview",
+  "uid": "quantforge-overview",
+  "tags": ["quantforge"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": { "from": "now-15m", "to": "now" },
+  "refresh": "5s",
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Order Round-Trip p99 (ms)",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "s", "decimals": 4 } },
+      "targets": [
+        { "expr": "histogram_quantile(0.99, sum(rate(quantforge_order_roundtrip_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p99" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Last Order Latency (µs)",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "µs" } },
+      "targets": [ { "expr": "quantforge_last_order_latency_microseconds", "legendFormat": "last" } ]
+    },
+    {
+      "type": "stat",
+      "title": "Active WebSocket Clients",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "targets": [ { "expr": "quantforge_active_websockets", "legendFormat": "clients" } ]
+    },
+    {
+      "type": "stat",
+      "title": "Rejected Orders",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" },
+        "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } } },
+      "targets": [ { "expr": "quantforge_orders_rejected_total", "legendFormat": "rejected" } ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Order Rate by Side",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        { "expr": "sum(rate(quantforge_orders_total[1m])) by (side)", "legendFormat": "{{side}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Executions / sec",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        { "expr": "rate(quantforge_executions_total[1m])", "legendFormat": "fills/s" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Order Round-Trip Latency (p50 / p99)",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum(rate(quantforge_order_roundtrip_seconds_bucket[1m])) by (le))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.99, sum(rate(quantforge_order_roundtrip_seconds_bucket[1m])) by (le))", "legendFormat": "p99" }
+      ]
+    }
+  ]
+}

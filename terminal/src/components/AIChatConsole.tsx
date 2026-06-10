@@ -1,169 +1,103 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { AI_BASE } from '../config';
 
 interface TraceStep {
   agent: string;
+  method?: string;
   symbol?: string;
   sentiment_score?: number;
   market_bias?: string;
   recommended_action?: string;
-  target_quantity?: number;
   approved?: boolean;
-  approved_quantity?: number;
   status?: string;
   order_id?: number;
   reasoning?: string;
   detail?: string;
 }
 
-interface AIChatConsoleProps {
+interface Props {
+  defaultSymbol: string;
   onOrderPlaced: () => void;
 }
 
-export const AIChatConsole: React.FC<AIChatConsoleProps> = ({ onOrderPlaced }) => {
-  const [symbol, setSymbol] = useState('BTCUSDT');
+export const AIChatConsole: React.FC<Props> = ({ defaultSymbol, onOrderPlaced }) => {
+  const [symbol, setSymbol] = useState(defaultSymbol);
   const [newsText, setNewsText] = useState(
-    'Company registers massive profits this quarter. Retail demand surging, bullish indicators suggest long run.'
-  );
+    'Company reports record quarterly profit; retail demand surging, guidance raised.');
   const [loading, setLoading] = useState(false);
   const [trace, setTrace] = useState<TraceStep[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const handleRunPipeline = async () => {
-    setLoading(true);
-    setError(null);
-    setTrace([]);
+  useEffect(() => setSymbol(defaultSymbol), [defaultSymbol]);
 
+  const run = async () => {
+    setLoading(true); setError(null); setTrace([]);
     try {
-      const response = await fetch('http://localhost:8001/analyze', {
+      const res = await fetch(`${AI_BASE}/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol, news: newsText })
+        body: JSON.stringify({ symbol, news: newsText }),
       });
-
-      if (!response.ok) {
-        throw new Error(`AI Gateway error: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      if (!res.ok) throw new Error(`AI service ${res.status}`);
+      const data = await res.json();
       setTrace(data.pipeline_trace);
-      
-      // Notify parent to refresh positions/orders
       onOrderPlaced();
-    } catch (e: any) {
-      setError(e.message || 'Failed to complete agent analysis pipeline.');
+    } catch (e) {
+      setError((e as Error).message || 'Agent pipeline failed.');
     } finally {
       setLoading(false);
     }
   };
 
+  const badge = (s: TraceStep) => {
+    if (s.market_bias) return { text: s.market_bias, cls: s.market_bias === 'BULLISH' ? 'up' : s.market_bias === 'BEARISH' ? 'down' : 'dim' };
+    if (s.approved !== undefined) return { text: s.approved ? 'APPROVED' : 'BLOCKED', cls: s.approved ? 'up' : 'down' };
+    if (s.status) return { text: s.status, cls: s.status === 'EXECUTED' ? 'up' : 'down' };
+    return null;
+  };
+
   return (
-    <div className="panel-card" style={{ height: '100%' }}>
-      <div className="panel-header">
-        <div className="panel-title">
-          <span style={{ color: 'var(--color-purple)' }}>★</span>
-          AI Research Agent Swarm
-        </div>
+    <div className="panel" style={{ height: '100%' }}>
+      <div className="panel__head">
+        <span className="panel__title">AI Research Pipeline</span>
+        <span className="panel__sub">analyst → pm → risk → exec</span>
       </div>
-
-      <div className="panel-content" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <div style={{ flex: 1 }}>
-            <label className="stat-label">Symbol</label>
-            <input
-              type="text"
-              value={symbol}
-              onChange={(e) => setSymbol(e.target.value)}
-              className="input-field"
-              placeholder="BTCUSDT"
-            />
-          </div>
-        </div>
-
+      <div className="panel__body panel__body--pad" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div>
-          <label className="stat-label">News / Sentiment Input</label>
-          <textarea
-            value={newsText}
-            onChange={(e) => setNewsText(e.target.value)}
-            className="input-field"
-            style={{ height: '80px', resize: 'none', fontFamily: 'var(--font-sans)', marginTop: '4px' }}
-            placeholder="Paste news headline or earnings text here..."
-          />
+          <span className="label">Symbol</span>
+          <input className="field" value={symbol} onChange={(e) => setSymbol(e.target.value)} />
         </div>
-
-        <button
-          onClick={handleRunPipeline}
-          disabled={loading}
-          className="btn-primary"
-          style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)', color: '#fff' }}
-        >
-          {loading ? 'Analyzing Swarm Consensus...' : 'Execute Agent Research'}
+        <div>
+          <span className="label">News / Sentiment Input</span>
+          <textarea className="field" style={{ height: 70, resize: 'none' }}
+                    value={newsText} onChange={(e) => setNewsText(e.target.value)} />
+        </div>
+        <button className="btn btn--ai" onClick={run} disabled={loading}>
+          {loading ? 'Running Pipeline…' : 'Run Agent Pipeline'}
         </button>
 
-        {error && (
-          <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px', color: 'var(--color-ask)', fontSize: '0.8rem' }}>
-            {error}
-          </div>
-        )}
+        {error && <div className="down" style={{ fontSize: 10.5 }}>{error}</div>}
 
-        {/* Pipeline Trace Output */}
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-          {trace.map((step, idx) => (
-            <div
-              key={idx}
-              style={{
-                background: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '8px',
-                padding: '10px'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                <span style={{ fontWeight: 600, fontSize: '0.75rem', color: 'var(--color-purple)', textTransform: 'uppercase' }}>
-                  {step.agent}
-                </span>
-                {step.market_bias && (
-                  <span style={{
-                    fontSize: '0.7rem',
-                    fontWeight: 700,
-                    color: step.market_bias === 'BULLISH' ? 'var(--color-bid)' : step.market_bias === 'BEARISH' ? 'var(--color-ask)' : 'var(--text-secondary)'
-                  }}>
-                    {step.market_bias}
-                  </span>
-                )}
-                {step.approved !== undefined && (
-                  <span style={{
-                    fontSize: '0.7rem',
-                    fontWeight: 700,
-                    color: step.approved ? 'var(--color-bid)' : 'var(--color-ask)'
-                  }}>
-                    {step.approved ? 'APPROVED' : 'BLOCKED'}
-                  </span>
-                )}
-                {step.status && (
-                  <span style={{
-                    fontSize: '0.7rem',
-                    fontWeight: 700,
-                    color: step.status === 'EXECUTED' ? 'var(--color-bid)' : 'var(--color-ask)'
-                  }}>
-                    {step.status}
-                  </span>
-                )}
-              </div>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.3' }}>
-                {step.reasoning || step.detail}
-              </p>
-              {step.order_id && (
-                <div style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', color: 'var(--color-primary)', marginTop: '4px' }}>
-                  Order ID: {step.order_id}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto' }}>
+          {trace.map((s, i) => {
+            const b = badge(s);
+            return (
+              <div className="trace" key={i}>
+                <div className="trace__head">
+                  <span className="trace__agent">{s.agent}</span>
+                  {b && <span className={`trace__badge ${b.cls}`}>{b.text}</span>}
                 </div>
-              )}
-            </div>
-          ))}
-          {loading && (
-            <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-              <span className="status-indicator status-connecting" style={{ marginRight: '6px' }}></span>
-              Market Analyst compiling sentiment reports...
-            </div>
+                <div className="trace__body">{s.reasoning || s.detail}</div>
+                <div className="trace__meta">
+                  {s.method && <span>method: {s.method}</span>}
+                  {s.order_id && <span> · order #{s.order_id}</span>}
+                  {typeof s.sentiment_score === 'number' && <span> · score {s.sentiment_score.toFixed(2)}</span>}
+                </div>
+              </div>
+            );
+          })}
+          {!trace.length && !loading && (
+            <div className="empty">Submit news to run the 4-agent research pipeline.</div>
           )}
         </div>
       </div>

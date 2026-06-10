@@ -1,26 +1,17 @@
-FROM alpine:latest AS builder
-
-RUN apk add --no-cache build-base cmake make g++
-
+# ---- build stage -----------------------------------------------------------
+FROM alpine:3.19 AS builder
+RUN apk add --no-cache build-base cmake
 WORKDIR /app
-
-# Copy the entire workspace to get shared headers and matching engine source
 COPY . .
+# Portable release build (no -march=native: build and run hosts may differ).
+RUN cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DQF_PORTABLE_BUILD=ON -DQF_NO_LTO=ON
+RUN cmake --build build --target quantforge_matching_engine -j
 
-# Run CMake and build matching engine
-RUN cmake -B build -S .
-RUN cmake --build build --target quantforge_matching_engine
-
-# Stage 2: Final lightweight image
-FROM alpine:latest
-
-RUN apk add --no-cache libstdc++
-
+# ---- runtime stage ---------------------------------------------------------
+FROM alpine:3.19
+RUN apk add --no-cache libstdc++ && adduser -D -H quant
 WORKDIR /app
-
-# Copy compiled binary from builder stage
 COPY --from=builder /app/build/bin/quantforge_matching_engine /app/quantforge_matching_engine
-
+USER quant
 EXPOSE 9001
-
 CMD ["/app/quantforge_matching_engine"]

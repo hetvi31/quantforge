@@ -2,53 +2,69 @@
 
 namespace quantforge {
 
-OrderBook& MatchingEngine::getOrCreateOrderBook(const std::string& symbol) {
-    auto it = order_books_.find(symbol);
-    if (it == order_books_.end()) {
-        auto book = std::make_unique<OrderBook>(symbol);
-        OrderBook& book_ref = *book;
-        order_books_[symbol] = std::move(book);
-        return book_ref;
+MatchingEngine::BookEntry& MatchingEngine::getOrCreateEntry(const std::string& symbol) {
+    std::lock_guard<std::mutex> lock(registry_mutex_);
+    auto it = books_.find(symbol);
+    if (it == books_.end()) {
+        auto entry = std::make_unique<BookEntry>();
+        entry->book = std::make_unique<OrderBook>(symbol);
+        BookEntry& ref = *entry;
+        books_[symbol] = std::move(entry);
+        return ref;
     }
     return *(it->second);
 }
 
 std::vector<Trade> MatchingEngine::submitOrder(const Order& order, std::vector<ExecutionReport>& reports) {
-    std::lock_guard<std::mutex> lock(engine_mutex_);
-    OrderBook& book = getOrCreateOrderBook(order.symbol);
-    
+    BookEntry& entry = getOrCreateEntry(order.symbol);
+    std::lock_guard<std::mutex> book_lock(entry.mtx);
+
     if (order.type == OrderType::MARKET) {
-        return book.addMarketOrder(order, reports);
-    } else {
-        return book.addLimitOrder(order, reports);
+        return entry.book->addMarketOrder(order, reports);
     }
+    return entry.book->addLimitOrder(order, reports);
 }
 
 bool MatchingEngine::cancelOrder(const std::string& symbol, uint64_t order_id, std::vector<ExecutionReport>& reports) {
-    std::lock_guard<std::mutex> lock(engine_mutex_);
-    auto it = order_books_.find(symbol);
-    if (it == order_books_.end()) {
-        return false;
+    BookEntry* entry = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(registry_mutex_);
+        auto it = books_.find(symbol);
+        if (it == books_.end()) {
+            return false;
+        }
+        entry = it->second.get();
     }
-    return it->second->cancelOrder(order_id, reports);
+    std::lock_guard<std::mutex> book_lock(entry->mtx);
+    return entry->book->cancelOrder(order_id, reports);
 }
 
-std::vector<std::pair<double, uint64_t>> MatchingEngine::getBidsDepth(const std::string& symbol) {
-    std::lock_guard<std::mutex> lock(engine_mutex_);
-    auto it = order_books_.find(symbol);
-    if (it == order_books_.end()) {
-        return {};
+std::vector<std::pair<PriceTicks, uint64_t>> MatchingEngine::getBidsDepth(const std::string& symbol) {
+    BookEntry* entry = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(registry_mutex_);
+        auto it = books_.find(symbol);
+        if (it == books_.end()) {
+            return {};
+        }
+        entry = it->second.get();
     }
-    return it->second->getBidsDepth();
+    std::lock_guard<std::mutex> book_lock(entry->mtx);
+    return entry->book->getBidsDepth();
 }
 
-std::vector<std::pair<double, uint64_t>> MatchingEngine::getAsksDepth(const std::string& symbol) {
-    std::lock_guard<std::mutex> lock(engine_mutex_);
-    auto it = order_books_.find(symbol);
-    if (it == order_books_.end()) {
-        return {};
+std::vector<std::pair<PriceTicks, uint64_t>> MatchingEngine::getAsksDepth(const std::string& symbol) {
+    BookEntry* entry = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(registry_mutex_);
+        auto it = books_.find(symbol);
+        if (it == books_.end()) {
+            return {};
+        }
+        entry = it->second.get();
     }
-    return it->second->getAsksDepth();
+    std::lock_guard<std::mutex> book_lock(entry->mtx);
+    return entry->book->getAsksDepth();
 }
 
 } // namespace quantforge

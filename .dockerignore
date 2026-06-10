@@ -1,0 +1,10 @@
+.git
+.github
+build/
+.verify/
+**/__pycache__/
+**/*.pyc
+terminal/node_modules/
+terminal/dist/
+*.md
+.env

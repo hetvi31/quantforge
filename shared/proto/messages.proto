@@ -2,6 +2,12 @@ syntax = "proto3";
 
 package quantforge;
 
+// NOTE: The live gateway <-> engine transport uses the compact fixed-layout
+// binary structs in shared/cpp/WireProtocol.hpp (and their Python mirror in
+// gateway/app/protocol.py). This .proto documents the same message shapes in a
+// schema-first form and is the basis for any future gRPC/protobuf transport.
+// Prices are integer ticks (see PRICE_SCALE in WireProtocol.hpp).
+
 enum ProtobufOrderSide {
   SIDE_UNSPECIFIED = 0;
   SIDE_BUY = 1;
@@ -25,37 +31,37 @@ enum ProtobufOrderStatus {
 }
 
 message ProtobufOrderRequest {
-  uint64_t client_order_id = 1;
+  uint64 client_order_id = 1;
   string symbol = 2;
   ProtobufOrderSide side = 3;
   ProtobufOrderType type = 4;
-  double price = 5;
-  uint64_t quantity = 6;
-  uint64_t timestamp = 7;
+  int64 price_ticks = 5;
+  uint64 quantity = 6;
+  uint64 timestamp = 7;
 }
 
 message ProtobufExecutionReport {
-  uint64_t order_id = 1;
-  uint64_t client_order_id = 2;
+  uint64 order_id = 1;
+  uint64 client_order_id = 2;
   string symbol = 3;
   ProtobufOrderSide side = 4;
   ProtobufOrderStatus status = 5;
-  double price = 6;
-  uint64_t last_quantity = 7;
-  uint64_t cumulative_quantity = 8;
-  uint64_t remaining_quantity = 9;
-  uint64_t timestamp = 10;
+  int64 price_ticks = 6;
+  uint64 last_quantity = 7;
+  uint64 cumulative_quantity = 8;
+  uint64 remaining_quantity = 9;
+  uint64 timestamp = 10;
   string reject_reason = 11;
 }
 
 message PriceLevel {
-  double price = 1;
-  uint64_t quantity = 2;
+  int64 price_ticks = 1;
+  uint64 quantity = 2;
 }
 
 message ProtobufMarketDepthUpdate {
   string symbol = 1;
   repeated PriceLevel bids = 2;
   repeated PriceLevel asks = 3;
-  uint64_t timestamp = 4;
+  uint64 timestamp = 4;
 }

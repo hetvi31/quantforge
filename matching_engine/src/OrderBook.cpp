@@ -1,7 +1,9 @@
 #include "OrderBook.hpp"
+#include <atomic>
 #include <chrono>
 #include <algorithm>
 #include <iostream>
+#include <limits>
 
 namespace quantforge {
 
@@ -47,8 +49,11 @@ std::vector<Trade> OrderBook::addLimitOrder(Order order, std::vector<ExecutionRe
 }
 
 std::vector<Trade> OrderBook::addMarketOrder(Order order, std::vector<ExecutionReport>& reports) {
-    // Market order must match immediately; set price thresholds to cross anything in the book
-    order.price = (order.side == OrderSide::BUY) ? 1e9 : 0.0;
+    // Market order must match immediately; set price thresholds to cross anything in the book.
+    // A buy crosses any ask (max price), a sell crosses any bid (min price).
+    order.price = (order.side == OrderSide::BUY)
+        ? std::numeric_limits<PriceTicks>::max()
+        : std::numeric_limits<PriceTicks>::min();
 
     ExecutionReport new_report;
     new_report.order_id = order.id;
@@ -138,7 +143,7 @@ std::vector<Trade> OrderBook::matchOrder(Order& order, std::vector<ExecutionRepo
     std::vector<Trade> trades;
     uint64_t now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
-    static uint64_t global_trade_counter = 0;
+    static std::atomic<uint64_t> global_trade_counter{0};
 
     if (order.side == OrderSide::BUY) {
         while (!asks_.empty() && order.remaining_quantity > 0) {
@@ -271,8 +276,8 @@ std::vector<Trade> OrderBook::matchOrder(Order& order, std::vector<ExecutionRepo
     return trades;
 }
 
-std::vector<std::pair<double, uint64_t>> OrderBook::getBidsDepth() const {
-    std::vector<std::pair<double, uint64_t>> levels;
+std::vector<std::pair<PriceTicks, uint64_t>> OrderBook::getBidsDepth() const {
+    std::vector<std::pair<PriceTicks, uint64_t>> levels;
     for (const auto& [price, order_list] : bids_) {
         uint64_t total_qty = 0;
         for (const auto& order : order_list) {
@@ -283,8 +288,8 @@ std::vector<std::pair<double, uint64_t>> OrderBook::getBidsDepth() const {
     return levels;
 }
 
-std::vector<std::pair<double, uint64_t>> OrderBook::getAsksDepth() const {
-    std::vector<std::pair<double, uint64_t>> levels;
+std::vector<std::pair<PriceTicks, uint64_t>> OrderBook::getAsksDepth() const {
+    std::vector<std::pair<PriceTicks, uint64_t>> levels;
     for (const auto& [price, order_list] : asks_) {
         uint64_t total_qty = 0;
         for (const auto& order : order_list) {

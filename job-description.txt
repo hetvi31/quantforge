@@ -1,0 +1,161 @@
+Dolat Capital — Software Developer
+Software Developer
+About Dolat Capital
+We at Dolat are a bunch of traders, puzzle solvers, and coding aficionados. Always looking to learn more, we take up intricacies of the financial world that others find difficult and solve them. We do everything from trading in volatile market conditions with grace to refining cutting-edge technologies and strategies.
+
+You will have a lot to learn about financial data here. If technology, trading, and critical thinking excite you, Dolat Capital is a perfect place to sharpen your skills.
+
+Specifications
+Item	Details
+Position	Software Developer
+Location	Andheri West, Mumbai
+Experience	0–2 Years
+Qualification	Degree in Engineering or Computer Science. Applications from Bachelor's, Master's, and Ph.D. students in Computer Science, Electrical Engineering, and related fields are encouraged.
+Required Skills
+Expert in C++
+
+Exchange connectivity experience is a plus
+
+Familiarity with Linux environments (Windows knowledge is a plus)
+
+Strong knowledge of scripting languages, especially Python
+
+High-level competency in one or more of:
+
+TCP stack optimization
+
+Multi-core / single-machine parallelism
+
+Low-level performance optimization
+
+Cache optimization
+
+Profiling
+
+Responsibilities
+Trading Infrastructure
+Augment, improve, redesign, and/or re-implement Dolat's low-latency, high-throughput production trading environment.
+
+Build systems that collect market data and disseminate orders to exchanges worldwide.
+
+Optimize trading platforms using network programming and systems programming techniques.
+
+Participate in the design, architecture, and implementation of automated trading systems.
+
+Take ownership of systems from design through implementation.
+
+Market Data & Simulation
+Develop systems providing access to historical market data.
+
+Develop trading simulation environments.
+
+Risk & Performance
+Build risk-management tools.
+
+Build performance-tracking tools.
+
+Engineering
+Implement domain-optimized data structures.
+
+Learn and internalize theories behind existing trading systems.
+
+Work on server-side architectures.
+
+Company Contribution
+Participate in interviewing and occasional campus recruitment activities.
+
+Additional Skills & Traits
+Technical
+Strong background in:
+
+Data Structures
+
+Algorithms
+
+Object-Oriented Programming
+
+Preferably using C++
+
+Extensive Linux development experience
+
+Experience with distributed systems (plus)
+
+Experience with highly concurrent systems (plus)
+
+Experience with low-latency systems (plus)
+
+Experience with high-transaction environments (plus)
+
+Experience with TCP and UDP networking
+
+Knowledge of Python, Perl, or Shell Scripting (plus)
+
+Problem Solving
+Brilliant analytical and problem-solving abilities
+
+Strong attention to detail
+
+Ability to see both detailed and big-picture perspectives
+
+Professional Skills
+Strong communication skills
+
+Excellent interpersonal skills
+
+Ability to manage multiple tasks in a fast-paced environment
+
+Ability to communicate effectively with:
+
+Management
+
+Developers
+
+Traders
+
+Operations teams
+
+Personal Attributes
+Passion for new technologies and ideas
+
+Continuous learning mindset
+
+Iterative development mindset
+
+Performance-driven attitude
+
+Ability to work effectively in teams
+
+What Dolat Is Really Looking For
+If you condense the entire JD into the highest-priority technical signals, they are looking for candidates with:
+
+C++
+
+Linux
+
+Data Structures & Algorithms
+
+TCP/UDP Networking
+
+Concurrent / Multi-threaded Systems
+
+Low-Latency Systems
+
+High-Throughput Server Architectures
+
+Performance Optimization & Profiling
+
+Automated Trading Systems
+
+Market Data Processing
+
+Risk Management Systems
+
+Historical Market Data & Simulation Platforms
+
+Python Scripting
+
+System Design & Ownership
+
+This is fundamentally a low-latency trading infrastructure engineering role, not a typical software development role. The strongest project for this JD is therefore one that demonstrates:
+
+C++ + Linux + Networking + Concurrency + Trading Infrastructure + Risk Management + Market Simulation, which is exactly why the proposed QuantForge project aligns so closely with the position.

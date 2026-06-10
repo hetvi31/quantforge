@@ -19,8 +19,11 @@ class MarketAnalystAgent:
             
         return {
             "agent": "Market Analyst Agent",
+            "method": "llm" if self.sentiment_engine.use_llm else "heuristic",
             "symbol": symbol,
             "sentiment_score": score,
             "market_bias": bias,
-            "reasoning": f"Analyzed context. Sentiment score calculated as {score:.2f}, yielding a {bias} bias."
+            "reasoning": f"Sentiment score {score:.2f} via "
+                         f"{'Groq LLM' if self.sentiment_engine.use_llm else 'heuristic scorer'}, "
+                         f"yielding a {bias} bias."
         }

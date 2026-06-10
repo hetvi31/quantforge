@@ -21,26 +21,26 @@ public:
 
     // Getters for book info
     const std::string& getSymbol() const { return symbol_; }
-    
-    // Depth representation (Price, Quantity)
-    std::vector<std::pair<double, uint64_t>> getBidsDepth() const;
-    std::vector<std::pair<double, uint64_t>> getAsksDepth() const;
+
+    // Depth representation (price ticks, aggregated quantity), best level first.
+    std::vector<std::pair<PriceTicks, uint64_t>> getBidsDepth() const;
+    std::vector<std::pair<PriceTicks, uint64_t>> getAsksDepth() const;
 
 private:
     std::string symbol_;
 
     // Bids: Sorted high to low (highest bid has priority)
-    std::map<double, std::list<Order>, std::greater<double>> bids_;
-    
+    std::map<PriceTicks, std::list<Order>, std::greater<PriceTicks>> bids_;
+
     // Asks: Sorted low to high (lowest ask has priority)
-    std::map<double, std::list<Order>, std::less<double>> asks_;
+    std::map<PriceTicks, std::list<Order>, std::less<PriceTicks>> asks_;
 
     // Quick lookup from order ID to list iterator
     std::unordered_map<uint64_t, std::list<Order>::iterator> order_lookup_;
-    
+
     // Quick lookup for order meta details (price, side)
     struct OrderMeta {
-        double price;
+        PriceTicks price;
         OrderSide side;
     };
     std::unordered_map<uint64_t, OrderMeta> order_meta_;

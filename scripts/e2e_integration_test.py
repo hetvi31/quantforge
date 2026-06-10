@@ -1,75 +1,83 @@
+import os
 import time
 import requests
 
+API_KEY = os.getenv("API_KEY", "quantforge-dev-key")
+HEADERS = {"X-API-Key": API_KEY}
+
+
+def _post(url, payload):
+    return requests.post(url, json=payload, headers=HEADERS, timeout=10)
+
+
 def test_e2e_trading_lifecycle(gateway_url="http://localhost:8000"):
-    print("[E2E Test] Starting End-to-End Integration Tests...")
-    
-    # 1. Fetch initial portfolio status
+    print("[E2E] Starting end-to-end integration tests...")
+
+    # 1. Initial portfolio.
     try:
-        portfolio_response = requests.get(f"{gateway_url}/api/v1/portfolio/status")
-        portfolio_response.raise_for_status()
-        initial_portfolio = portfolio_response.json()
-        print(f"[E2E Test] Initial Cash: ${initial_portfolio['cash']:.2f}")
+        initial = requests.get(f"{gateway_url}/api/v1/portfolio/status", timeout=10).json()
+        print(f"[E2E] Initial cash: ${initial['cash']:.2f}")
     except Exception as e:
-        print(f"[E2E Test] Failed to contact gateway: {e}")
+        print(f"[E2E] Failed to contact gateway: {e}")
         return False
 
-    # 2. Place Sell limit order: 10 units at $60,000
-    sell_payload = {
-        "symbol": "BTCUSDT",
-        "side": "S",
-        "type": "L",
-        "price": 60000.00,
-        "quantity": 10
-    }
-    sell_response = requests.post(f"{gateway_url}/api/v1/orders/create", json=sell_payload)
-    if sell_response.status_code != 200:
-        print(f"[E2E Test] Sell Order placement failed: {sell_response.text}")
+    # 2. Crossing pair that fully matches (sell then buy, same price/qty).
+    sell = _post(f"{gateway_url}/api/v1/orders/create",
+                 {"symbol": "BTCUSDT", "side": "S", "type": "L", "price": 60000.00, "quantity": 10})
+    if sell.status_code != 200:
+        print(f"[E2E] Sell placement failed: {sell.text}")
         return False
-    sell_order_id = sell_response.json()["order_id"]
-    print(f"[E2E Test] Placed Sell Order. ID: {sell_order_id}")
+    print(f"[E2E] Placed sell order {sell.json()['order_id']}")
 
-    # 3. Place Buy limit order: 10 units at $60,000 (crosses and matches immediately)
-    buy_payload = {
-        "symbol": "BTCUSDT",
-        "side": "B",
-        "type": "L",
-        "price": 60000.00,
-        "quantity": 10
-    }
-    buy_response = requests.post(f"{gateway_url}/api/v1/orders/create", json=buy_payload)
-    if buy_response.status_code != 200:
-        print(f"[E2E Test] Buy Order placement failed: {buy_response.text}")
+    buy = _post(f"{gateway_url}/api/v1/orders/create",
+                {"symbol": "BTCUSDT", "side": "B", "type": "L", "price": 60000.00, "quantity": 10})
+    if buy.status_code != 200:
+        print(f"[E2E] Buy placement failed: {buy.text}")
         return False
-    buy_order_id = buy_response.json()["order_id"]
-    print(f"[E2E Test] Placed Buy Order. ID: {buy_order_id}")
+    print(f"[E2E] Placed buy order {buy.json()['order_id']}")
 
-    # Allow matching engine and database threadpool to settle updates
     time.sleep(2)
 
-    # 4. Fetch updated portfolio status
-    portfolio_response = requests.get(f"{gateway_url}/api/v1/portfolio/status")
-    final_portfolio = portfolio_response.json()
-    print(f"[E2E Test] Final Cash: ${final_portfolio['cash']:.2f}")
-    
-    # Assert positions are matched and updated
-    positions = final_portfolio["positions"]
-    btc_pos = [p for p in positions if p["symbol"] == "BTCUSDT"]
-    
-    print(f"[E2E Test] Current BTC positions: {btc_pos}")
-    
-    # Since account 1 (DefaultTrader) placed both orders, cash should have decremented cost of buy ($600,000)
-    # and incremented proceeds of sell ($600,000), leaving net cash balance close to initial cash!
-    # Positions should be net 0 BTC.
-    assert abs(final_portfolio["cash"] - initial_portfolio["cash"]) < 1e-2
-    assert len(btc_pos) == 0 or btc_pos[0]["quantity"] == 0
-    
-    print("[E2E Test] End-to-End matching checks PASSED successfully!")
+    final = requests.get(f"{gateway_url}/api/v1/portfolio/status", timeout=10).json()
+    print(f"[E2E] Final cash: ${final['cash']:.2f}")
+    btc = [p for p in final["positions"] if p["symbol"] == "BTCUSDT"]
+
+    # Buy/sell of equal size and price -> net flat, cash conserved.
+    assert abs(final["cash"] - initial["cash"]) < 1e-2, "Cash not conserved on round trip"
+    assert len(btc) == 0 or btc[0]["quantity"] == 0, "Position should be flat"
+    print("[E2E] Matching / cash-conservation checks PASSED.")
+
+    # 3. Cancel regression: a resting order must actually leave the book.
+    resting = _post(f"{gateway_url}/api/v1/orders/create",
+                    {"symbol": "ETHUSDT", "side": "B", "type": "L", "price": 1000.00, "quantity": 5})
+    assert resting.status_code == 200, resting.text
+    resting_id = resting.json()["order_id"]
+    print(f"[E2E] Placed resting order {resting_id}")
+    time.sleep(1)
+
+    cancel = _post(f"{gateway_url}/api/v1/orders/cancel",
+                   {"symbol": "ETHUSDT", "order_id": resting_id})
+    assert cancel.status_code == 200, cancel.text
+    time.sleep(1)
+
+    active = requests.get(f"{gateway_url}/api/v1/orders/active", timeout=10).json()
+    assert all(o["order_id"] != resting_id for o in active), \
+        "Cancelled order is still working — cancel path is broken!"
+    print("[E2E] Cancel regression PASSED — order left the book.")
+
+    # 4. Auth must be enforced on writes.
+    unauth = requests.post(f"{gateway_url}/api/v1/orders/create",
+                           json={"symbol": "BTCUSDT", "side": "B", "type": "M",
+                                 "price": 0, "quantity": 1}, timeout=10)
+    assert unauth.status_code == 401, f"Expected 401 without API key, got {unauth.status_code}"
+    print("[E2E] Auth enforcement PASSED.")
+
+    print("[E2E] ALL END-TO-END CHECKS PASSED!")
     return True
+
 
 if __name__ == "__main__":
     import sys
-    url = "http://localhost:8000"
-    if len(sys.argv) > 1:
-        url = sys.argv[1]
-    test_e2e_trading_lifecycle(url)
+    url = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000"
+    ok = test_e2e_trading_lifecycle(url)
+    raise SystemExit(0 if ok else 1)
