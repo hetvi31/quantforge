@@ -551,3 +551,35 @@ async def websocket_endpoint(websocket: WebSocket):
         with ws_lock:
             websocket_clients.discard(websocket)
         ACTIVE_CONNECTIONS.dec()
+
+
+# --------------------------------------------------------------------------- #
+# AI Service Proxy
+# --------------------------------------------------------------------------- #
+@app.post("/analyze")
+def proxy_analyze(body: dict):
+    import urllib.request
+    import urllib.error
+    import json
+
+    url = "http://localhost:8001/analyze"
+    data = json.dumps(body).encode('utf-8')
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={'Content-Type': 'application/json'},
+        method='POST'
+    )
+    try:
+        with urllib.request.urlopen(req) as response:
+            res_data = response.read()
+            return json.loads(res_data.decode('utf-8'))
+    except urllib.error.HTTPError as e:
+        try:
+            err_data = e.read().decode('utf-8')
+            detail = json.loads(err_data).get("detail", str(e))
+        except Exception:
+            detail = str(e)
+        raise HTTPException(status_code=e.code, detail=detail)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to reach AI service: {e}")
