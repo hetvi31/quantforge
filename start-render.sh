@@ -21,8 +21,7 @@ python scripts/market_simulator.py localhost &
 
 echo "[Startup] Starting AI Research Service..."
 export GATEWAY_URL=http://localhost:8000
-cd ai_research && uvicorn app:app --host 0.0.0.0 --port 8001 &
-cd /app
+cd /app/ai_research && uvicorn app:app --host 0.0.0.0 --port 8001 &
 
 echo "[Startup] Starting FastAPI Gateway..."
-exec uvicorn gateway.app.main:app --host 0.0.0.0 --port 8000
+cd /app/gateway && exec uvicorn app.main:app --host 0.0.0.0 --port 8000

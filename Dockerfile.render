@@ -40,8 +40,6 @@ COPY gateway ./gateway
 COPY ai_research ./ai_research
 COPY scripts ./scripts
 
-ENV PYTHONPATH=/app/gateway:/app/ai_research
-
 # Copy the startup runner script
 COPY start-render.sh .
 RUN chmod +x start-render.sh
