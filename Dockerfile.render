@@ -1,0 +1,49 @@
+# ---- build stage -----------------------------------------------------------
+FROM python:3.11-slim AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY . .
+
+# Compile the C++ matching engine and feed handler
+RUN cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DQF_PORTABLE_BUILD=ON -DQF_NO_LTO=ON
+RUN cmake --build build --target quantforge_matching_engine -j
+RUN cmake --build build --target quantforge_feed_handler -j
+
+# ---- runtime stage ---------------------------------------------------------
+FROM python:3.11-slim
+
+# Install runtime dependencies (including redis-server for local pub/sub caching)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    redis-server \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy C++ compiled binaries from builder stage
+COPY --from=builder /app/build/bin/quantforge_matching_engine /usr/local/bin/quantforge_matching_engine
+COPY --from=builder /app/build/bin/quantforge_feed_handler /usr/local/bin/quantforge_feed_handler
+
+# Copy gateway requirements and install python packages (including groq for AI research)
+COPY gateway/requirements.txt ./gateway/requirements.txt
+RUN pip install --no-cache-dir -r ./gateway/requirements.txt groq
+
+# Copy gateway, AI research, and simulation scripts
+COPY gateway ./gateway
+COPY ai_research ./ai_research
+COPY scripts ./scripts
+
+ENV PYTHONPATH=/app/gateway:/app/ai_research
+
+# Copy the startup runner script
+COPY start-render.sh .
+RUN chmod +x start-render.sh
+
+EXPOSE 8000
+CMD ["./start-render.sh"]
