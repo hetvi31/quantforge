@@ -30,9 +30,10 @@ WORKDIR /app
 COPY --from=builder /app/build/bin/quantforge_matching_engine /usr/local/bin/quantforge_matching_engine
 COPY --from=builder /app/build/bin/quantforge_feed_handler /usr/local/bin/quantforge_feed_handler
 
-# Copy gateway requirements and install python packages (including groq for AI research)
+# Copy gateway and AI research requirements and install python packages
 COPY gateway/requirements.txt ./gateway/requirements.txt
-RUN pip install --no-cache-dir -r ./gateway/requirements.txt groq
+COPY ai_research/requirements.txt ./ai_research/requirements.txt
+RUN pip install --no-cache-dir -r ./gateway/requirements.txt -r ./ai_research/requirements.txt
 
 # Copy gateway, AI research, and simulation scripts
 COPY gateway ./gateway
